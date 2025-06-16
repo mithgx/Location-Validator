@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Validator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: 'hsl(210, 40%, 98%)',
+                            foreground: 'hsl(222.2, 47.4%, 11.2%)'
+                        },
+                        background: 'hsl(222.2, 84%, 4.9%)',
+                        foreground: 'hsl(210, 40%, 98%)',
+                        card: {
+                            DEFAULT: 'hsl(222.2, 47.4%, 11.2%)',
+                            foreground: 'hsl(210, 40%, 98%)'
+                        },
+                        muted: {
+                            DEFAULT: 'hsl(217.2, 32.6%, 17.5%)',
+                            foreground: 'hsl(215, 20.2%, 65.1%)'
+                        },
+                        accent: {
+                            DEFAULT: 'hsl(217.2, 32.6%, 17.5%)',
+                            foreground: 'hsl(210, 40%, 98%)'
+                        },
+                        destructive: {
+                            DEFAULT: 'hsl(0, 62.8%, 30.6%)',
+                            foreground: 'hsl(210, 40%, 98%)'
+                        },
+                        border: 'hsl(217.2, 32.6%, 17.5%)',
+                        input: 'hsl(217.2, 32.6%, 17.5%)',
+                        ring: 'hsl(212.7, 26.8%, 83.9%)'
+                    },
+                    keyframes: {
+                        'fade-in': {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        'scale-in': {
+                            '0%': { transform: 'scale(0.95)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        },
+                        'pulse-ring': {
+                            '0%': { transform: 'scale(0.33)' },
+                            '40%, 50%': { opacity: '1' },
+                            '100%': { opacity: '0', transform: 'scale(1)' }
+                        }
+                    },
+                    animation: {
+                        'fade-in': 'fade-in 0.3s ease-out',
+                        'scale-in': 'scale-in 0.2s ease-out',
+                        'pulse-ring': 'pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .loading-dots::after {
+            content: '';
+            animation: loading-dots 1.5s infinite;
+        }
+        
+        @keyframes loading-dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+        
+        .result-enter {
+            animation: fade-in 0.3s ease-out, scale-in 0.2s ease-out;
+        }
+        
+        .error-input {
+            border-color: hsl(0, 62.8%, 30.6%);
+            background-color: hsl(0, 62.8%, 15%);
+        }
+        
+        .success-input {
+            border-color: hsl(142, 76%, 36%);
+            background-color: hsl(142, 76%, 15%);
+        }
+
+        /* JSON Syntax Highlighting */
+        .json-container {
+            background: hsl(217.2, 32.6%, 12%);
+            border: 1px solid hsl(217.2, 32.6%, 17.5%);
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .json-key {
+            color: hsl(197, 71%, 73%);
+        }
+        
+        .json-string {
+            color: hsl(105, 48%, 70%);
+        }
+        
+        .json-number {
+            color: hsl(29, 54%, 61%);
+        }
+        
+        .json-boolean {
+            color: hsl(220, 14%, 71%);
+        }
+        
+        .json-null {
+            color: hsl(0, 0%, 60%);
+        }
+        
+        .json-bracket {
+            color: hsl(210, 40%, 98%);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-background flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+        <div class="bg-card rounded-lg border border-border shadow-lg p-8 animate-fade-in">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="relative inline-block mb-4">
+                    <div class="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto">
+                        <svg class="w-8 h-8 text-primary-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="absolute inset-0 w-16 h-16 bg-primary rounded-full animate-pulse-ring opacity-30"></div>
+                </div>
+                <h1 class="text-3xl font-bold text-card-foreground mb-2">Location Validator</h1>
+                <p class="text-muted-foreground">Validate area, pincode, and coordinate combinations</p>
+            </div>
+
+            <!-- Form -->
+            <form id="validateForm" method="POST" action="/validate" class="space-y-6">
+                <div class="space-y-2">
+                    <label for="area" class="text-sm font-medium text-card-foreground">Area/City</label>
+                    <input 
+                        type="text" 
+                        id="area"
+                        name="area" 
+                        required 
+                        placeholder="Enter area or city name"
+                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                    >
+                    <div id="area-error" class="text-sm text-destructive hidden"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="pincode" class="text-sm font-medium text-card-foreground">Pincode</label>
+                    <input 
+                        type="text" 
+                        id="pincode"
+                        name="pincode" 
+                        required 
+                        placeholder="Enter pincode"
+                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                    >
+                    <div id="pincode-error" class="text-sm text-destructive hidden"></div>
+                </div>
+
+                <div class="space-y-2">
+                    <label for="latlon" class="text-sm font-medium text-card-foreground">Latitude, Longitude <span class="text-muted-foreground">(optional)</span></label>
+                    <input 
+                        type="text" 
+                        id="latlon"
+                        name="latlon" 
+                        placeholder="e.g., 12.932402, 77.608947"
+                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                    >
+                    <div id="latlon-error" class="text-sm text-destructive hidden"></div>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 py-3 w-full"
+                >
+                    <span id="btn-text">Validate Location</span>
+                    <svg id="loading-icon" class="w-4 h-4 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Result -->
+            <div id="result" class="mt-8 hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('validateForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btn-text');
+        const loadingIcon = document.getElementById('loading-icon');
+        const result = document.getElementById('result');
+
+        function setLoading(loading) {
+            submitBtn.disabled = loading;
+            if (loading) {
+                btnText.textContent = 'Validating';
+                btnText.classList.add('loading-dots');
+                loadingIcon.classList.remove('hidden');
+            } else {
+                btnText.textContent = 'Validate Location';
+                btnText.classList.remove('loading-dots');
+                loadingIcon.classList.add('hidden');
+            }
+        }
+
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') {
+                json = JSON.stringify(json, null, 2);
+            }
+            
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            }).replace(/([{}[\]])/g, '<span class="json-bracket">$1</span>');
+        }
+
+        function showResult(data, isError = false) {
+            result.classList.remove('hidden');
+            result.classList.add('result-enter');
+            
+            if (isError) {
+                result.innerHTML = `
+                    <div class="flex items-start space-x-3 p-4 bg-red-950 border border-red-800 rounded-md">
+                        <div class="flex-shrink-0">
+                            <svg class="w-5 h-5 text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-red-200">Error</h3>
+                            <p class="text-sm text-red-300 mt-1">${data}</p>
+                        </div>
+                    </div>
+                `;
+            } else if (data.valid) {
+                result.innerHTML = `
+                    <div class="flex items-start space-x-3 p-4 bg-green-950 border border-green-800 rounded-md">
+                        <div class="flex-shrink-0">
+                            <svg class="w-5 h-5 text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-sm font-medium text-green-200 mb-3">✅ Valid Match Found</h3>
+                            <div class="json-container">
+                                <pre>${syntaxHighlight(data.matches)}</pre>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                result.innerHTML = `
+                    <div class="flex items-center space-x-3 p-4 bg-red-950 border border-red-800 rounded-md">
+                        <div class="flex-shrink-0">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-red-200">❌ No Match Found</h3>
+                            <p class="text-sm text-red-300">The provided location details do not match our records.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            setLoading(true);
+            result.classList.add('hidden');
+
+            const formData = new FormData(e.target);
+            
+            fetch('/validate', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                showResult(data);
+            })
+            .catch(err => {
+                console.error('Validation error:', err);
+                showResult('Unable to validate location. Please try again later.', true);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+        });
+
+        // Clear result when inputs change
+        ['area', 'pincode', 'latlon'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                result.classList.add('hidden');
+            });
+        });
+    </script>
+</body>
+</html>
