@@ -11,30 +11,30 @@
                 extend: {
                     colors: {
                         primary: {
-                            DEFAULT: 'hsl(210, 40%, 98%)',
-                            foreground: 'hsl(222.2, 47.4%, 11.2%)'
-                        },
-                        background: 'hsl(222.2, 84%, 4.9%)',
-                        foreground: 'hsl(210, 40%, 98%)',
-                        card: {
-                            DEFAULT: 'hsl(222.2, 47.4%, 11.2%)',
+                            DEFAULT: 'hsl(221.2, 83.2%, 53.3%)',
                             foreground: 'hsl(210, 40%, 98%)'
+                        },
+                        background: 'hsl(0, 0%, 100%)',
+                        foreground: 'hsl(222.2, 84%, 4.9%)',
+                        card: {
+                            DEFAULT: 'hsl(0, 0%, 100%)',
+                            foreground: 'hsl(222.2, 84%, 4.9%)'
                         },
                         muted: {
-                            DEFAULT: 'hsl(217.2, 32.6%, 17.5%)',
-                            foreground: 'hsl(215, 20.2%, 65.1%)'
+                            DEFAULT: 'hsl(210, 40%, 96.1%)',
+                            foreground: 'hsl(215.4, 16.3%, 46.9%)'
                         },
                         accent: {
-                            DEFAULT: 'hsl(217.2, 32.6%, 17.5%)',
-                            foreground: 'hsl(210, 40%, 98%)'
+                            DEFAULT: 'hsl(210, 40%, 96.1%)',
+                            foreground: 'hsl(222.2, 84%, 4.9%)'
                         },
                         destructive: {
-                            DEFAULT: 'hsl(0, 62.8%, 30.6%)',
+                            DEFAULT: 'hsl(0, 84.2%, 60.2%)',
                             foreground: 'hsl(210, 40%, 98%)'
                         },
-                        border: 'hsl(217.2, 32.6%, 17.5%)',
-                        input: 'hsl(217.2, 32.6%, 17.5%)',
-                        ring: 'hsl(212.7, 26.8%, 83.9%)'
+                        border: 'hsl(214.3, 31.8%, 91.4%)',
+                        input: 'hsl(214.3, 31.8%, 91.4%)',
+                        ring: 'hsl(221.2, 83.2%, 53.3%)'
                     },
                     keyframes: {
                         'fade-in': {
@@ -78,13 +78,13 @@
         }
         
         .error-input {
-            border-color: hsl(0, 62.8%, 30.6%);
-            background-color: hsl(0, 62.8%, 15%);
+            border-color: hsl(0, 84.2%, 60.2%);
+            background-color: hsl(0, 84.2%, 95%);
         }
         
         .success-input {
             border-color: hsl(142, 76%, 36%);
-            background-color: hsl(142, 76%, 15%);
+            background-color: hsl(142, 76%, 95%);
         }
 
         /* JSON Syntax Highlighting */
@@ -122,10 +122,55 @@
         .json-bracket {
             color: hsl(210, 40%, 98%);
         }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid hsl(214.3, 31.8%, 91.4%);
+        }
+
+        .data-table th {
+            background-color: hsl(210, 40%, 96.1%);
+            font-weight: 500;
+            color: hsl(222.2, 84%, 4.9%);
+        }
+
+        .data-table tr:hover {
+            background-color: hsl(210, 40%, 98%);
+        }
+
+        .valid-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .valid-badge.valid {
+            background-color: hsl(142, 76%, 95%);
+            color: hsl(142, 76%, 36%);
+        }
+
+        .valid-badge.invalid {
+            background-color: hsl(0, 84.2%, 95%);
+            color: hsl(0, 84.2%, 60.2%);
+        }
     </style>
 </head>
 <body class="min-h-screen bg-background flex items-center justify-center p-4">
-    <div class="w-full max-w-lg">
+    <div class="w-full max-w-6xl">
         <div class="bg-card rounded-lg border border-border shadow-lg p-8 animate-fade-in">
             <!-- Header -->
             <div class="text-center mb-8">
@@ -136,70 +181,509 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         </svg>
                     </div>
-                    <div class="absolute inset-0 w-16 h-16 bg-primary rounded-full animate-pulse-ring opacity-30"></div>
                 </div>
                 <h1 class="text-3xl font-bold text-card-foreground mb-2">Location Validator</h1>
-                <p class="text-muted-foreground">Validate area, pincode, and coordinate combinations</p>
+                <p class="text-muted-foreground">Validate locations individually or upload an Excel file for batch validation</p>
             </div>
 
-            <!-- Form -->
-            <form id="validateForm" method="POST" action="/validate" class="space-y-6">
-                <div class="space-y-2">
-                    <label for="area" class="text-sm font-medium text-card-foreground">Area/City</label>
-                    <input 
-                        type="text" 
-                        id="area"
-                        name="area" 
-                        required 
-                        placeholder="Enter area or city name"
-                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+            <!-- Tabs -->
+            <div class="flex space-x-4 mb-8">
+                <button id="singleTab" class="px-4 py-2 rounded-md bg-primary text-primary-foreground">Single Validation</button>
+                <button id="batchTab" class="px-4 py-2 rounded-md bg-muted text-muted-foreground">Batch Validation</button>
+                <button id="areaTab" class="px-4 py-2 rounded-md bg-muted text-muted-foreground">Area Search</button>
+            </div>
+
+            <!-- Single Validation Form -->
+            <div id="singleValidation" class="space-y-6">
+                <form id="validateForm" method="POST" action="/validate" class="space-y-6">
+                    <div class="space-y-2">
+                        <label for="area" class="text-sm font-medium text-card-foreground">Area/City</label>
+                        <input 
+                            type="text" 
+                            id="area"
+                            name="area" 
+                            required 
+                            placeholder="Enter area or city name"
+                            class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                        >
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="pincode" class="text-sm font-medium text-card-foreground">Pincode</label>
+                        <input 
+                            type="text" 
+                            id="pincode"
+                            name="pincode" 
+                            required 
+                            placeholder="Enter pincode"
+                            class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                        >
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="latlon" class="text-sm font-medium text-card-foreground">Latitude, Longitude <span class="text-muted-foreground">(optional)</span></label>
+                        <input 
+                            type="text" 
+                            id="latlon"
+                            name="latlon" 
+                            placeholder="e.g., 12.932402, 77.608947"
+                            class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                        >
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        id="submitBtn"
+                        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 py-3 w-full"
                     >
-                    <div id="area-error" class="text-sm text-destructive hidden"></div>
+                        <span id="btn-text">Validate Location</span>
+                        <svg id="loading-icon" class="w-4 h-4 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <div id="result" class="mt-8 hidden"></div>
+            </div>
+
+            <!-- Batch Validation Form -->
+            <div id="batchValidation" class="space-y-6 hidden">
+                <form id="uploadForm" class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-card-foreground">Upload Excel File</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label for="file-upload" class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-background border-input hover:bg-muted/50">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-8 h-8 mb-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-muted-foreground"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                                    <p class="text-xs text-muted-foreground">Excel (.xlsx) files only</p>
+                                </div>
+                                <input id="file-upload" type="file" class="hidden" accept=".xlsx" />
+                            </label>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Column Mapping -->
+                <div id="columnMapping" class="space-y-6 hidden">
+                    <h3 class="text-lg font-medium text-card-foreground">Map Columns</h3>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Area Column</label>
+                            <select id="areaColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Pincode Column</label>
+                            <select id="pincodeColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Lat/Long Column</label>
+                            <select id="latlongColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                    </div>
+
+                    <button 
+                        type="button" 
+                        id="validateBatchBtn"
+                        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 py-3 w-full"
+                    >
+                        <span id="batch-btn-text">Validate Data</span>
+                        <svg id="batch-loading-icon" class="w-4 h-4 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="space-y-2">
-                    <label for="pincode" class="text-sm font-medium text-card-foreground">Pincode</label>
-                    <input 
-                        type="text" 
-                        id="pincode"
-                        name="pincode" 
-                        required 
-                        placeholder="Enter pincode"
-                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
-                    >
-                    <div id="pincode-error" class="text-sm text-destructive hidden"></div>
+                <!-- Preview Table -->
+                <div id="previewTable" class="hidden">
+                    <h3 class="text-lg font-medium text-card-foreground mb-4">Preview (First 20 rows of <span id="totalRows">0</span> total rows)</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr id="previewHeader"></tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
                 </div>
 
-                <div class="space-y-2">
-                    <label for="latlon" class="text-sm font-medium text-card-foreground">Latitude, Longitude <span class="text-muted-foreground">(optional)</span></label>
-                    <input 
-                        type="text" 
-                        id="latlon"
-                        name="latlon" 
-                        placeholder="e.g., 12.932402, 77.608947"
-                        class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
-                    >
-                    <div id="latlon-error" class="text-sm text-destructive hidden"></div>
+                <!-- Results Table -->
+                <div id="resultsTable" class="hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-medium text-card-foreground">Validation Results (<span id="resultCount">0</span> rows processed, showing first 20)</h3>
+                        <button 
+                            id="downloadBtn"
+                            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Download All Results
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Pincode</th>
+                                    <th class="text-left">Area</th>
+                                    <th class="text-left">Lat/Long</th>
+                                    <th class="text-left">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody"></tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
 
-                <button 
-                    type="submit" 
-                    id="submitBtn"
-                    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 py-3 w-full"
-                >
-                    <span id="btn-text">Validate Location</span>
-                    <svg id="loading-icon" class="w-4 h-4 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                </button>
-            </form>
-
-            <!-- Result -->
-            <div id="result" class="mt-8 hidden"></div>
+            <!-- Area Search Form -->
+            <div id="areaSearch" class="space-y-6 hidden">
+                <form id="areaSearchForm" class="space-y-6">
+                    <div class="space-y-2">
+                        <label for="areaSearchInput" class="text-sm font-medium text-card-foreground">Area/City</label>
+                        <input 
+                            type="text" 
+                            id="areaSearchInput"
+                            name="areaSearchInput" 
+                            required 
+                            placeholder="Enter area or city name"
+                            class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground"
+                        >
+                    </div>
+                    <button 
+                        type="submit" 
+                        id="areaSearchBtn"
+                        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-6 py-3 w-full"
+                    >
+                        <span id="area-btn-text">Search Area</span>
+                        <svg id="area-loading-icon" class="w-4 h-4 animate-spin hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </form>
+                <div id="areaSearchResult" class="mt-8 hidden">
+                    <h3 class="text-lg font-medium text-card-foreground mb-4">Matching Locations</h3>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th class="text-left">Area/City</th>
+                                    <th class="text-left">State</th>
+                                    <th class="text-left">Country</th>
+                                    <th class="text-left">Pincode</th>
+                                    <th class="text-left">Latitude</th>
+                                    <th class="text-left">Longitude</th>
+                                </tr>
+                            </thead>
+                            <tbody id="areaSearchBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Tab switching
+        const singleTab = document.getElementById('singleTab');
+        const batchTab = document.getElementById('batchTab');
+        const areaTab = document.getElementById('areaTab');
+        const singleValidation = document.getElementById('singleValidation');
+        const batchValidation = document.getElementById('batchValidation');
+        const areaSearch = document.getElementById('areaSearch');
+
+        singleTab.addEventListener('click', () => {
+            singleTab.classList.remove('bg-muted', 'text-muted-foreground');
+            singleTab.classList.add('bg-primary', 'text-primary-foreground');
+            batchTab.classList.remove('bg-primary', 'text-primary-foreground');
+            batchTab.classList.add('bg-muted', 'text-muted-foreground');
+            singleValidation.classList.remove('hidden');
+            batchValidation.classList.add('hidden');
+            areaSearch.classList.add('hidden');
+        });
+
+        batchTab.addEventListener('click', () => {
+            batchTab.classList.remove('bg-muted', 'text-muted-foreground');
+            batchTab.classList.add('bg-primary', 'text-primary-foreground');
+            singleTab.classList.remove('bg-primary', 'text-primary-foreground');
+            singleTab.classList.add('bg-muted', 'text-muted-foreground');
+            batchValidation.classList.remove('hidden');
+            singleValidation.classList.add('hidden');
+            areaSearch.classList.add('hidden');
+        });
+
+        areaTab.addEventListener('click', () => {
+            areaTab.classList.remove('bg-muted', 'text-muted-foreground');
+            areaTab.classList.add('bg-primary', 'text-primary-foreground');
+            singleTab.classList.remove('bg-primary', 'text-primary-foreground');
+            singleTab.classList.add('bg-muted', 'text-muted-foreground');
+            batchTab.classList.remove('bg-primary', 'text-primary-foreground');
+            batchTab.classList.add('bg-muted', 'text-muted-foreground');
+            areaSearch.classList.remove('hidden');
+            singleValidation.classList.add('hidden');
+            batchValidation.classList.add('hidden');
+        });
+
+        // File upload handling
+        const fileUpload = document.getElementById('file-upload');
+        const columnMapping = document.getElementById('columnMapping');
+        const previewTable = document.getElementById('previewTable');
+        let uploadedData = null;
+        let validationResults = null;
+        let tempFile = null;
+
+        function resetState() {
+            uploadedData = null;
+            validationResults = null;
+            tempFile = null;
+            columnMapping.classList.add('hidden');
+            previewTable.classList.add('hidden');
+            document.getElementById('resultsTable').classList.add('hidden');
+            fileUpload.value = '';
+            document.getElementById('totalRows').textContent = '0';
+            document.getElementById('resultCount').textContent = '0';
+        }
+
+        // Reset state when switching tabs
+        singleTab.addEventListener('click', resetState);
+        batchTab.addEventListener('click', resetState);
+        areaTab.addEventListener('click', resetState);
+
+        fileUpload.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            resetState();
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                }
+
+                uploadedData = data;
+                tempFile = data.temp_file;
+                document.getElementById('totalRows').textContent = data.total_rows;
+                populateColumnSelects(data.columns);
+                showPreview(data.preview);
+                columnMapping.classList.remove('hidden');
+                previewTable.classList.remove('hidden');
+            } catch (error) {
+                alert(error.message || 'Failed to upload file');
+            }
+        });
+
+        function populateColumnSelects(columns) {
+            const selects = ['areaColumn', 'pincodeColumn', 'latlongColumn'];
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Select column</option>' +
+                    columns.map(col => `<option value="${col}">${col}</option>`).join('');
+            });
+        }
+
+        function showPreview(previewData) {
+            if (!previewData || !Array.isArray(previewData) || !previewData.length) {
+                console.warn('[WARNING] No preview data available');
+                return;
+            }
+
+            const header = document.getElementById('previewHeader');
+            const body = document.getElementById('previewBody');
+            
+            // Clear existing content
+            header.innerHTML = '';
+            body.innerHTML = '';
+
+            // Add headers
+            Object.keys(previewData[0]).forEach(key => {
+                header.innerHTML += `<th class="text-left">${key}</th>`;
+            });
+
+            // Add rows
+            previewData.forEach(row => {
+                const tr = document.createElement('tr');
+                Object.values(row).forEach(value => {
+                    tr.innerHTML += `<td>${value}</td>`;
+                });
+                body.appendChild(tr);
+            });
+        }
+
+        // Batch validation
+        const validateBatchBtn = document.getElementById('validateBatchBtn');
+        const batchBtnText = document.getElementById('batch-btn-text');
+        const batchLoadingIcon = document.getElementById('batch-loading-icon');
+        const resultsTable = document.getElementById('resultsTable');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        validateBatchBtn.addEventListener('click', async () => {
+            if (!uploadedData || !tempFile) return;
+
+            const columnMapping = {
+                area: document.getElementById('areaColumn').value,
+                pincode: document.getElementById('pincodeColumn').value,
+                latlong: document.getElementById('latlongColumn').value
+            };
+
+            if (!Object.values(columnMapping).every(Boolean)) {
+                alert('Please map all required columns');
+                return;
+            }
+
+            setBatchLoading(true);
+            console.log(`[INFO] Starting validation of ${uploadedData.total_rows} rows...`);
+
+            try {
+                const response = await fetch('/validate-batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tempFile: tempFile,
+                        columnMapping
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Validation failed');
+                }
+
+                // Validate response structure
+                if (!data.results || !Array.isArray(data.results)) {
+                    throw new Error('Invalid response format from server');
+                }
+
+                validationResults = data.results;
+                document.getElementById('resultCount').textContent = data.total_processed || 0;
+                showResults(data.results);
+                
+                // Show processing summary
+                console.log(`[INFO] Successfully processed ${data.total_processed || 0} rows`);
+                if (data.total_processed > data.display_count) {
+                    console.log(`[INFO] Showing first ${data.display_count} results, download available for up to ${data.download_count} rows`);
+                }
+                
+                // Show success message for large datasets
+                if (data.total_processed > 10000) {
+                    console.log(`[SUCCESS] Large dataset processed efficiently!`);
+                }
+                
+            } catch (error) {
+                alert(error.message || 'Failed to validate data');
+            } finally {
+                setBatchLoading(false);
+            }
+        });
+
+        downloadBtn.addEventListener('click', async () => {
+            if (!validationResults) return;
+
+            try {
+                console.log('[INFO] Starting download...');
+                
+                // Show download progress
+                downloadBtn.disabled = true;
+                downloadBtn.textContent = 'Preparing Download...';
+                
+                // Use streaming endpoint for better performance
+                const response = await fetch('/download-results-stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+
+                // Update button text
+                downloadBtn.textContent = 'Downloading...';
+
+                // Create a blob from the response
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `validation_results_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                console.log('[SUCCESS] Download completed');
+                
+                // Reset button
+                downloadBtn.textContent = 'Download Results';
+                downloadBtn.disabled = false;
+                
+            } catch (error) {
+                alert('Failed to download results');
+                console.error('[ERROR] Download failed:', error);
+                
+                // Reset button on error
+                downloadBtn.textContent = 'Download Results';
+                downloadBtn.disabled = false;
+            }
+        });
+
+        function setBatchLoading(loading) {
+            validateBatchBtn.disabled = loading;
+            if (loading) {
+                batchBtnText.textContent = 'Validating';
+                batchBtnText.classList.add('loading-dots');
+                batchLoadingIcon.classList.remove('hidden');
+            } else {
+                batchBtnText.textContent = 'Validate Data';
+                batchBtnText.classList.remove('loading-dots');
+                batchLoadingIcon.classList.add('hidden');
+            }
+        }
+
+        function showResults(results) {
+            if (!results || !Array.isArray(results)) {
+                console.error('[ERROR] Invalid results data');
+                return;
+            }
+
+            const body = document.getElementById('resultsBody');
+            body.innerHTML = '';
+
+            results.forEach(result => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${result.pincode || ''}</td>
+                    <td>${result.area || ''}</td>
+                    <td>${result.latlong || ''}</td>
+                    <td>
+                        <span class="valid-badge ${result.valid ? 'valid' : 'invalid'}">
+                            ${result.valid ? 'Valid' : 'Invalid'}
+                        </span>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+
+            resultsTable.classList.remove('hidden');
+        }
+
+        // Single validation form handling
         const form = document.getElementById('validateForm');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btn-text');
@@ -219,112 +703,105 @@
             }
         }
 
-        function syntaxHighlight(json) {
-            if (typeof json !== 'string') {
-                json = JSON.stringify(json, null, 2);
-            }
-            
-            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            
-            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
-                let cls = 'json-number';
-                if (/^"/.test(match)) {
-                    if (/:$/.test(match)) {
-                        cls = 'json-key';
-                    } else {
-                        cls = 'json-string';
-                    }
-                } else if (/true|false/.test(match)) {
-                    cls = 'json-boolean';
-                } else if (/null/.test(match)) {
-                    cls = 'json-null';
-                }
-                return '<span class="' + cls + '">' + match + '</span>';
-            }).replace(/([{}[\]])/g, '<span class="json-bracket">$1</span>');
-        }
-
         function showResult(data, isError = false) {
             result.classList.remove('hidden');
             result.classList.add('result-enter');
             
             if (isError) {
                 result.innerHTML = `
-                    <div class="flex items-start space-x-3 p-4 bg-red-950 border border-red-800 rounded-md">
-                        <div class="flex-shrink-0">
-                            <svg class="w-5 h-5 text-red-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-medium text-red-200">Error</h3>
-                            <p class="text-sm text-red-300 mt-1">${data}</p>
-                        </div>
+                    <div class="p-4 rounded-md bg-destructive/10 border border-destructive text-destructive">
+                        <p class="font-medium">Error</p>
+                        <p class="text-sm mt-1">${data.error}</p>
                     </div>
                 `;
-            } else if (data.valid) {
+                return;
+            }
+
+            if (data.valid) {
                 result.innerHTML = `
-                    <div class="flex items-start space-x-3 p-4 bg-green-950 border border-green-800 rounded-md">
-                        <div class="flex-shrink-0">
-                            <svg class="w-5 h-5 text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="text-sm font-medium text-green-200 mb-3">✅ Valid Match Found</h3>
-                            <div class="json-container">
-                                <pre>${syntaxHighlight(data.matches)}</pre>
-                            </div>
-                        </div>
+                    <div class="p-4 rounded-md bg-green-950 border border-green-800">
+                        <p class="font-medium text-green-200">Location Valid</p>
+                        <p class="text-sm text-green-300 mt-1">The provided location details match our records.</p>
                     </div>
                 `;
             } else {
                 result.innerHTML = `
-                    <div class="flex items-center space-x-3 p-4 bg-red-950 border border-red-800 rounded-md">
-                        <div class="flex-shrink-0">
-                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-medium text-red-200">❌ No Match Found</h3>
-                            <p class="text-sm text-red-300">The provided location details do not match our records.</p>
-                        </div>
+                    <div class="p-4 rounded-md bg-red-950 border border-red-800">
+                        <p class="font-medium text-red-200">Location Invalid</p>
+                        <p class="text-sm text-red-300 mt-1">The provided location details do not match our records.</p>
                     </div>
                 `;
             }
         }
 
-        // Form submission
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             setLoading(true);
             result.classList.add('hidden');
-
-            const formData = new FormData(e.target);
             
-            fetch('/validate', {
+            try {
+                const formData = new FormData(form);
+                const response = await fetch('/validate', {
                 method: 'POST',
                 body: formData
-            })
-            .then(res => res.json())
-            .then(data => {
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Validation failed');
+                }
                 showResult(data);
-            })
-            .catch(err => {
-                console.error('Validation error:', err);
-                showResult('Unable to validate location. Please try again later.', true);
-            })
-            .finally(() => {
+            } catch (error) {
+                showResult({ error: error.message || 'An error occurred while validating the location.' }, true);
+            } finally {
                 setLoading(false);
-            });
+            }
         });
 
-        // Clear result when inputs change
-        ['area', 'pincode', 'latlon'].forEach(id => {
-            document.getElementById(id).addEventListener('input', function() {
-                result.classList.add('hidden');
-            });
+        // Area search form logic
+        const areaSearchForm = document.getElementById('areaSearchForm');
+        const areaSearchInput = document.getElementById('areaSearchInput');
+        const areaSearchBtn = document.getElementById('areaSearchBtn');
+        const areaBtnText = document.getElementById('area-btn-text');
+        const areaLoadingIcon = document.getElementById('area-loading-icon');
+        const areaSearchResult = document.getElementById('areaSearchResult');
+        const areaSearchBody = document.getElementById('areaSearchBody');
+
+        areaSearchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const area = areaSearchInput.value.trim();
+            if (!area) return;
+            areaBtnText.textContent = 'Searching...';
+            areaLoadingIcon.classList.remove('hidden');
+            areaSearchBtn.disabled = true;
+            areaSearchResult.classList.add('hidden');
+            areaSearchBody.innerHTML = '';
+            try {
+                const response = await fetch('/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ area })
+                });
+                const data = await response.json();
+                if (data.matches && Array.isArray(data.matches) && data.matches.length > 0) {
+                    data.matches.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${row.place_name || ''}</td><td>${row.state_name || ''}</td><td>${row.country_code || ''}</td><td>${row.postal_code || ''}</td><td>${row.latitude || ''}</td><td>${row.longitude || ''}</td>`;
+                        areaSearchBody.appendChild(tr);
+                    });
+                    areaSearchResult.classList.remove('hidden');
+                } else {
+                    areaSearchBody.innerHTML = '<tr><td colspan="6">No results found.</td></tr>';
+                    areaSearchResult.classList.remove('hidden');
+                }
+            } catch (err) {
+                areaSearchBody.innerHTML = '<tr><td colspan="6">Error searching area.</td></tr>';
+                areaSearchResult.classList.remove('hidden');
+            } finally {
+                areaBtnText.textContent = 'Search Area';
+                areaLoadingIcon.classList.add('hidden');
+                areaSearchBtn.disabled = false;
+            }
         });
     </script>
 </body>
