@@ -428,6 +428,16 @@
             areaSearch.classList.remove('hidden');
             singleValidation.classList.add('hidden');
             batchValidation.classList.add('hidden');
+            // Reset area search button state
+            const areaSearchBtn = document.getElementById('areaSearchBtn');
+            const areaBtnText = document.getElementById('area-btn-text');
+            const areaLoadingIcon = document.getElementById('area-loading-icon');
+            if (areaSearchBtn && areaBtnText && areaLoadingIcon) {
+                areaSearchBtn.blur();
+                areaSearchBtn.disabled = false;
+                areaBtnText.textContent = 'Search Area';
+                areaLoadingIcon.classList.add('hidden');
+            }
         });
 
         // File upload handling
