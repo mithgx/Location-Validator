@@ -11,6 +11,7 @@ import numpy as np
 import gc
 import hashlib
 from datetime import datetime
+import pickle
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Required for session management
@@ -20,67 +21,63 @@ MAX_DISPLAY_ROWS = 20
 
 @lru_cache(maxsize=1)
 def load_all_postal_data():
-    """Load and cache postal data with optimization"""
-    path = "data/allCountries.parquet"
-    if not os.path.exists(path):
-        raise FileNotFoundError("data/allCountries.parquet not found.")
-
-    print("[DEBUG] Loading postal data...")
-    df = pd.read_parquet(path)
-    
-    # Data normalization and cleaning
-    df = df.dropna(subset=["postal_code", "place_name", "country_code"])
-    
-    # Standardize column names and data types
-    text_columns = ["place_name", "state_name", "county_name", "postal_code", "country_code"]
-    for col in text_columns:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.lower().str.strip()
-
-    df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
-    
-    # Normalize pincodes: remove spaces, uppercase
-    df['postal_code_norm'] = df['postal_code'].str.replace(' ', '').str.upper()
-    
-    # Create lookup dictionary with normalized pincode
-    postal_lookup = {}
-    for _, row in df.iterrows():
-        pincode = row['postal_code_norm']
-        if pincode not in postal_lookup:
-            postal_lookup[pincode] = []
-        postal_lookup[pincode].append({
-            'place_name': row['place_name'],
-            'state_name': row['state_name'],
-            'county_name': row['county_name'],
-            'country_code': row['country_code'],
-            'latitude': row['latitude'],
-            'longitude': row['longitude']
-        })
-    
-    print(f"[DEBUG] Loaded {len(postal_lookup)} unique normalized pincodes from all countries")
-    
-    return postal_lookup
+    """Load and cache postal data, preferring the pickle file for speed."""
+    pickle_path = "data/postal_lookup.pkl"
+    parquet_path = "data/allCountries.parquet"
+    if os.path.exists(pickle_path):
+        print(f"[INFO] Loading postal lookup from pickle: {pickle_path}")
+        with open(pickle_path, "rb") as f:
+            postal_lookup = pickle.load(f)
+        print(f"[INFO] Loaded {len(postal_lookup)} unique normalized pincodes from pickle.")
+        return postal_lookup
+    else:
+        print("[WARNING] Pickle file not found, loading from Parquet (this will be slow)...")
+        if not os.path.exists(parquet_path):
+            raise FileNotFoundError(f"{parquet_path} not found.")
+        df = pd.read_parquet(parquet_path)
+        df = df.dropna(subset=["postal_code", "place_name", "country_code"])
+        text_columns = ["place_name", "state_name", "county_name", "postal_code", "country_code"]
+        for col in text_columns:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.lower().str.strip()
+        df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
+        df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+        df['postal_code_norm'] = df['postal_code'].str.replace(' ', '').str.upper()
+        postal_lookup = {}
+        for _, row in df.iterrows():
+            pincode = row['postal_code_norm']
+            if pincode not in postal_lookup:
+                postal_lookup[pincode] = []
+            postal_lookup[pincode].append({
+                'place_name': row['place_name'],
+                'state_name': row['state_name'],
+                'county_name': row['county_name'],
+                'country_code': row['country_code'],
+                'latitude': row['latitude'],
+                'longitude': row['longitude']
+            })
+        print(f"[INFO] Loaded {len(postal_lookup)} unique normalized pincodes from Parquet.")
+        return postal_lookup
 
 def normalize_input_data(df, column_mapping):
     """Normalize and clean input data"""
     normalized_df = df.copy()
-    
     # Standardize column names
-    for col in ['area', 'pincode', 'latlong']:
-        if column_mapping[col] in normalized_df.columns:
+    for col in ['area', 'city', 'state', 'country', 'latitude', 'longitude', 'pincode', 'latlong']:
+        if column_mapping.get(col) in normalized_df.columns:
             normalized_df[col] = normalized_df[column_mapping[col]]
-    
     # Clean and normalize data
-    normalized_df['area'] = normalized_df['area'].astype(str).str.lower().str.strip()
-    normalized_df['pincode'] = normalized_df['pincode'].astype(str).str.upper().str.strip()
-    normalized_df['latlong'] = normalized_df['latlong'].astype(str).str.strip()
-    
+    for col in ['area', 'city', 'state', 'country']:
+        if col in normalized_df.columns:
+            normalized_df[col] = normalized_df[col].astype(str).str.lower().str.strip()
+    if 'pincode' in normalized_df.columns:
+        normalized_df['pincode'] = normalized_df['pincode'].astype(str).str.upper().str.strip()
+    if 'latlong' in normalized_df.columns:
+        normalized_df['latlong'] = normalized_df['latlong'].astype(str).str.strip()
     # Handle missing values
-    normalized_df['area'] = normalized_df['area'].replace(['nan', 'none', ''], '')
-    normalized_df['pincode'] = normalized_df['pincode'].replace(['nan', 'none', ''], '')
-    normalized_df['latlong'] = normalized_df['latlong'].replace(['nan', 'none', ''], '')
-    
+    for col in ['area', 'city', 'state', 'country', 'pincode', 'latlong']:
+        if col in normalized_df.columns:
+            normalized_df[col] = normalized_df[col].replace(['nan', 'none', ''], '')
     return normalized_df
 
 def normalize_pincode(pincode):
@@ -109,12 +106,59 @@ def is_within_threshold(lat1, lon1, lat2, lon2, threshold=0.1):
         return False
     return abs(lat1 - lat2) <= threshold and abs(lon1 - lon2) <= threshold
 
+def load_country_name_to_code_map():
+    mapping = {}
+    path = "data/countryInfo.txt"
+    if not os.path.exists(path):
+        print("[WARNING] countryInfo.txt not found. Country name mapping will not work.")
+        return mapping
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.strip().split('\t')
+            if len(parts) > 4:
+                code = parts[0].strip().upper()
+                name = parts[4].strip().lower()
+                mapping[name] = code
+    return mapping
+
+COUNTRY_NAME_TO_CODE = load_country_name_to_code_map()
+
+def normalize_country_to_code(country_input):
+    if not country_input:
+        return ''
+    country_input = country_input.strip().lower()
+    # Try mapping from countryInfo.txt
+    code = COUNTRY_NAME_TO_CODE.get(country_input)
+    if code:
+        return code
+    # Common fallbacks
+    fallback_map = {
+        'usa': 'US',
+        'us': 'US',
+        'united states': 'US',
+        'united states of america': 'US',
+        'india': 'IN',
+        'in': 'IN',
+        'bharat': 'IN',
+        'australia': 'AU',
+        'au': 'AU',
+        # Add more as needed
+    }
+    if country_input in fallback_map:
+        return fallback_map[country_input]
+    # fallback: if already a 2-letter code, return as uppercase
+    if len(country_input) == 2:
+        return country_input.upper()
+    return ''
+
 def fast_validate_batch(df, postal_lookup):
     """Ultra-fast batch validation using vectorized operations, with optional lat/lon check."""
     try:
         results = []
         df['formatted_pincode'] = df['pincode'].apply(normalize_pincode)
-        valid_mask = (df['formatted_pincode'] != '') & (df['area'] != '')
+        valid_mask = (df['formatted_pincode'] != '') & ((df.get('area', '') != '') | (df.get('city', '') != ''))
         valid_df = df[valid_mask].copy()
         print(f"[DEBUG] Processing {len(valid_df)} valid rows out of {len(df)} total")
         batch_size = 1000
@@ -122,40 +166,196 @@ def fast_validate_batch(df, postal_lookup):
             batch = valid_df.iloc[i:i+batch_size]
             batch_results = []
             for _, row in batch.iterrows():
-                area = row['area'].lower().strip()
+                area = row.get('area', '').lower().strip() if 'area' in row else ''
+                city = row.get('city', '').lower().strip() if 'city' in row else ''
+                state = row.get('state', '').lower().strip() if 'state' in row else ''
+                country = row.get('country', '').lower().strip() if 'country' in row else ''
+                country_code = normalize_country_to_code(row.get('country', ''))
                 formatted_pincode = row['formatted_pincode']
                 lat_input, lon_input = parse_latlon(row.get('latlong', '')) if row.get('latlong', '') else (None, None)
                 is_valid = False
+                matched_area = ''
+                matched_city = ''
+                matched_state = ''
+                matched_country = ''
+                matched_latitude = ''
+                matched_longitude = ''
+                matched_pincode = ''
+                debug_failed = False
+                threshold = 80 if country_code == 'IN' else 70
                 if formatted_pincode in postal_lookup:
                     postal_records = postal_lookup[formatted_pincode]
                     for postal_record in postal_records:
-                        area_match = (
-                            area in postal_record['place_name'] or 
-                            area in postal_record['state_name'] or 
-                            area in postal_record['county_name']
-                        )
+                        pr_area = postal_record['place_name'].lower().strip()
+                        pr_state = postal_record['state_name'].lower().strip()
+                        pr_county = postal_record['county_name'].lower().strip()
+                        pr_country = postal_record['country_code'].upper().strip()
+                        record_fields = [pr_area, pr_state, pr_county]
+                        # If city matches, mark as valid immediately
+                        city_match = False
+                        if city:
+                            for record_val in record_fields:
+                                if (
+                                    fuzz.token_sort_ratio(city, record_val) >= threshold or
+                                    fuzz.partial_ratio(city, record_val) >= threshold or
+                                    record_val in city or city in record_val
+                                ):
+                                    city_match = True
+                                    break
+                        if city_match:
+                            # Check country match before marking as valid
+                            normalized_input_country = normalize_country_to_code(row.get('country', ''))
+                            normalized_reference_country = normalize_country_to_code(postal_record.get('country_code', ''))
+                            if not normalized_input_country or normalized_input_country == normalized_reference_country:
+                                is_valid = True
+                                matched_area = postal_record['place_name']
+                                matched_city = postal_record['place_name']
+                                matched_state = postal_record['state_name']
+                                matched_country = postal_record['country_code']
+                                matched_latitude = postal_record.get('latitude', '')
+                                matched_longitude = postal_record.get('longitude', '')
+                                matched_pincode = formatted_pincode
+                                break
+                            else:
+                                # Country mismatch, skip this record
+                                continue
+                        # Cross-field fuzzy/partial/substring match for area (must match independently)
+                        area_match = False
+                        if area:
+                            for record_val in record_fields:
+                                if (
+                                    fuzz.token_sort_ratio(area, record_val) >= threshold or
+                                    fuzz.partial_ratio(area, record_val) >= threshold or
+                                    record_val in area or area in record_val
+                                ):
+                                    area_match = True
+                                    break
+                        else:
+                            area_match = True
+                        if not area_match:
+                            debug_failed = True
+                            continue
+                        # Cross-field fuzzy/partial/substring match for city (must match independently)
+                        # (already checked above, so skip here)
+                        # Cross-field fuzzy/partial/substring match for state
+                        state_match = False
+                        if state:
+                            for record_val in record_fields:
+                                if (
+                                    fuzz.token_sort_ratio(state, record_val) >= threshold or
+                                    fuzz.partial_ratio(state, record_val) >= threshold or
+                                    record_val in state or state in record_val
+                                ):
+                                    state_match = True
+                                    break
+                        else:
+                            state_match = True
+                        if not state_match:
+                            debug_failed = True
+                            continue
+                        # Country code strict match (must match if provided)
+                        country_match = True
+                        # Always normalize input country to code and compare to uppercase reference
+                        normalized_input_country = normalize_country_to_code(row.get('country', ''))
+                        normalized_reference_country = normalize_country_to_code(postal_record.get('country_code', ''))
+                        if normalized_input_country:
+                            country_match = (normalized_input_country == normalized_reference_country)
+                        if not country_match:
+                            print(f"[DEBUG] Country mismatch: input='{row.get('country', '')}', normalized_input='{normalized_input_country}', reference='{postal_record.get('country_code', '')}', normalized_reference='{normalized_reference_country}'")
+                            debug_failed = True
+                            continue
+                        # Lat/lon match (if provided)
                         latlon_match = True
                         if lat_input is not None and lon_input is not None:
                             latlon_match = is_within_threshold(lat_input, lon_input, postal_record.get('latitude'), postal_record.get('longitude'))
-                        if area_match and latlon_match:
+                        if latlon_match:
                             is_valid = True
+                            matched_area = postal_record['place_name']
+                            matched_city = postal_record['place_name']
+                            matched_state = postal_record['state_name']
+                            matched_country = postal_record['country_code']
+                            matched_latitude = postal_record.get('latitude', '')
+                            matched_longitude = postal_record.get('longitude', '')
+                            matched_pincode = formatted_pincode
                             break
+                    if not is_valid and debug_failed:
+                        print(f"[DEBUG] No match for input: area='{area}', city='{city}', state='{state}', country='{country_code}', pincode='{formatted_pincode}'")
+                        print(f"[DEBUG] Postal records for pincode {formatted_pincode}:")
+                        for rec in postal_records:
+                            print(rec)
+                # Compute difference column
+                difference_fields = []
+                def norm_str(val):
+                    return str(val).strip().lower() if val is not None else ''
+                def norm_num(val):
+                    try:
+                        return float(val)
+                    except:
+                        return str(val).strip().lower() if val is not None else ''
+                def floats_close(a, b, tol=1):
+                    try:
+                        return abs(float(a) - float(b)) <= tol
+                    except:
+                        return str(a).strip().lower() == str(b).strip().lower()
+                if norm_str(row.get('city', '')) != norm_str(matched_city):
+                    difference_fields.append('City')
+                if norm_str(row.get('state', '')) != norm_str(matched_state):
+                    difference_fields.append('State')
+                input_country_code = normalize_country_to_code(row.get('country', ''))
+                matched_country_code = normalize_country_to_code(matched_country)
+                if input_country_code != matched_country_code:
+                    difference_fields.append('Country')
+                if not floats_close(row.get('latitude', ''), matched_latitude):
+                    difference_fields.append('Latitude')
+                if not floats_close(row.get('longitude', ''), matched_longitude):
+                    difference_fields.append('Longitude')
+                if norm_str(row.get('pincode', '')) != norm_str(matched_pincode):
+                    difference_fields.append('Pincode')
+                difference = ', '.join(difference_fields)
                 batch_results.append({
-                    "pincode": row['pincode'],
-                    "area": row['area'],
-                    "latlong": row['latlong'],
-                    "valid": is_valid
+                    "input_area": row.get('area', ''),
+                    "input_city": row.get('city', ''),
+                    "input_state": row.get('state', ''),
+                    "input_country": row.get('country', ''),
+                    "input_latitude": row.get('latitude', '') if 'latitude' in row else (lat_input if lat_input is not None else ''),
+                    "input_longitude": row.get('longitude', '') if 'longitude' in row else (lon_input if lon_input is not None else ''),
+                    "input_pincode": row.get('pincode', ''),
+                    "matched_area": matched_area,
+                    "matched_city": matched_city,
+                    "matched_state": matched_state,
+                    "matched_country": matched_country,
+                    "matched_latitude": matched_latitude,
+                    "matched_longitude": matched_longitude,
+                    "matched_pincode": matched_pincode,
+                    "valid": is_valid,
+                    "difference": difference
                 })
             results.extend(batch_results)
             if (i + batch_size) % 10000 == 0:
                 print(f"[DEBUG] Processed {i + batch_size}/{len(valid_df)} rows")
         invalid_df = df[~valid_mask]
         for _, row in invalid_df.iterrows():
+            lat_input, lon_input = parse_latlon(row.get('latlong', '')) if row.get('latlong', '') else (None, None)
+            latitude = lat_input if lat_input is not None else ''
+            longitude = lon_input if lon_input is not None else ''
+            country_code = normalize_country_to_code(row.get('country', ''))
             results.append({
-                "pincode": row['pincode'],
-                "area": row['area'],
-                "latlong": row['latlong'],
-                "valid": False
+                "input_area": row.get('area', ''),
+                "input_city": row.get('city', ''),
+                "input_state": row.get('state', ''),
+                "input_country": row.get('country', ''),
+                "input_latitude": latitude,
+                "input_longitude": longitude,
+                "input_pincode": row.get('pincode', ''),
+                "matched_area": '',
+                "matched_city": '',
+                "matched_state": '',
+                "matched_country": country_code,
+                "matched_latitude": latitude,
+                "matched_longitude": longitude,
+                "matched_pincode": '',
+                "valid": False,
+                "difference": ''
             })
         return results
     except Exception as e:
@@ -180,6 +380,7 @@ def find_matching_locations(area, pincode, latlon, postal_lookup):
                     area in record['state_name'] or 
                     area in record['county_name']
                 )
+                country_code = normalize_country_to_code(record.get('country_code', ''))
                 latlon_match = True
                 if lat_input is not None and lon_input is not None:
                     latlon_match = is_within_threshold(lat_input, lon_input, record.get('latitude'), record.get('longitude'))
@@ -188,7 +389,7 @@ def find_matching_locations(area, pincode, latlon, postal_lookup):
                         'city': record['place_name'],
                         'state': record['state_name'],
                         'country': record.get('county_name', ''),
-                        'country_code': record.get('country_code', ''),
+                        'country_code': country_code,
                         'pincode': formatted_pincode,
                         'latitude': record.get('latitude', 0.0),
                         'longitude': record.get('longitude', 0.0)
@@ -200,7 +401,7 @@ def find_matching_locations(area, pincode, latlon, postal_lookup):
         return False, []
 
 def find_locations_by_area(area_or_pincode, postal_lookup):
-    """Find locations by area name or pincode, returning all available info."""
+    """Find locations by area name or pincode, returning all available info for each match."""
     try:
         query = area_or_pincode.lower().strip()
         matches = []
@@ -209,17 +410,9 @@ def find_locations_by_area(area_or_pincode, postal_lookup):
             # Match by pincode (exact or partial)
             if query in prefix.lower():
                 for record in records:
-                    matches.append({
-                        'place_name': record.get('place_name', ''),
-                        'state_name': record.get('state_name', ''),
-                        'county_name': record.get('county_name', ''),
-                        'country_code': record.get('country_code', ''),
-                        'postal_code': prefix,
-                        'latitude': record.get('latitude', 0.0),
-                        'longitude': record.get('longitude', 0.0)
-                    })
-                    if len(matches) >= 20:
-                        break
+                    match = dict(record)
+                    match['postal_code'] = prefix
+                    matches.append(match)
             # Match by area/city/state/county
             for record in records:
                 if (
@@ -227,19 +420,9 @@ def find_locations_by_area(area_or_pincode, postal_lookup):
                     query in record.get('state_name', '').lower() or
                     query in record.get('county_name', '').lower()
                 ):
-                    matches.append({
-                        'place_name': record.get('place_name', ''),
-                        'state_name': record.get('state_name', ''),
-                        'county_name': record.get('county_name', ''),
-                        'country_code': record.get('country_code', ''),
-                        'postal_code': prefix,
-                        'latitude': record.get('latitude', 0.0),
-                        'longitude': record.get('longitude', 0.0)
-                    })
-                    if len(matches) >= 20:
-                        break
-            if len(matches) >= 20:
-                break
+                    match = dict(record)
+                    match['postal_code'] = prefix
+                    matches.append(match)
         return matches
     except Exception as e:
         print(f"[ERROR] Error in find_locations_by_area: {str(e)}")
@@ -428,31 +611,40 @@ def download_results():
 
         # Convert to DataFrame efficiently
         df = pd.DataFrame(results_data)
+        # Ensure all required columns are present and in order
+        required_columns = [
+            'input_area', 'input_city', 'input_state', 'input_country', 'input_latitude', 'input_longitude', 'input_pincode',
+            'matched_area', 'matched_city', 'matched_state', 'matched_country', 'matched_latitude', 'matched_longitude', 'matched_pincode', 'valid', 'difference'
+        ]
+        for col in required_columns:
+            if col not in df.columns:
+                df[col] = ''
+        df = df[required_columns]
+        df.columns = [col.upper() for col in df.columns]
+        for col in df.select_dtypes(include='object').columns:
+            df[col] = df[col].astype(str).str.upper()
         
         # Use xlsxwriter for better performance
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Capitalize column names for the Excel output
+            df.columns = [col.upper() for col in df.columns]
             df.to_excel(writer, index=False, sheet_name='Validation Results')
-            
-            # Get workbook and worksheet objects
             workbook = writer.book
             worksheet = writer.sheets['Validation Results']
-            
-            # Add formatting efficiently
             header_format = workbook.add_format({
                 'bold': True,
-                'bg_color': '#4F46E5',
-                'font_color': 'white',
                 'border': 1
             })
-            
-            # Apply formatting to headers only
+            cell_format = workbook.add_format({'border': 1})
+            # Overwrite header row with custom format (all uppercase, no blue background)
             for col_num, value in enumerate(df.columns.values):
                 worksheet.write(0, col_num, value, header_format)
                 worksheet.set_column(col_num, col_num, 15)
-
-            # Add conditional formatting for 'valid' column
-            if 'valid' in df.columns:
-                valid_col_idx = df.columns.get_loc('valid')
+            if len(df) > 0:
+                worksheet.conditional_format(1, 0, len(df), len(df.columns) - 1, {'type': 'no_blanks', 'format': cell_format})
+                worksheet.conditional_format(1, 0, len(df), len(df.columns) - 1, {'type': 'blanks', 'format': cell_format})
+            if 'VALID' in df.columns:
+                valid_col_idx = df.columns.get_loc('VALID')
                 nrows = len(df) + 1  # +1 for header
                 worksheet.conditional_format(1, valid_col_idx, nrows, valid_col_idx, {
                     'type': 'cell',
@@ -529,29 +721,42 @@ def download_results_stream():
                 
                 # Convert to DataFrame
                 df = pd.DataFrame(results_data)
+                # Ensure all required columns are present and in order
+                required_columns = [
+                    'input_area', 'input_city', 'input_state', 'input_country', 'input_latitude', 'input_longitude', 'input_pincode',
+                    'matched_area', 'matched_city', 'matched_state', 'matched_country', 'matched_latitude', 'matched_longitude', 'matched_pincode', 'valid', 'difference'
+                ]
+                for col in required_columns:
+                    if col not in df.columns:
+                        df[col] = ''
+                # Reorder columns
+                df = df[required_columns]
+                # Capitalize all string columns and rename for Excel
+                df.columns = [col.upper() for col in df.columns]
+                for col in df.select_dtypes(include='object').columns:
+                    df[col] = df[col].astype(str).str.upper()
                 
                 # Create Excel in memory
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    # Capitalize column names for the Excel output
+                    df.columns = [col.upper() for col in df.columns]
                     df.to_excel(writer, index=False, sheet_name='Validation Results')
-                    
-                    # Basic formatting
                     workbook = writer.book
                     worksheet = writer.sheets['Validation Results']
                     header_format = workbook.add_format({
                         'bold': True,
-                        'bg_color': '#4F46E5',
-                        'font_color': 'white'
+                        'border': 1
                     })
-                    
-                    # Apply headers only
+                    cell_format = workbook.add_format({'border': 1})
                     for col_num, value in enumerate(df.columns.values):
                         worksheet.write(0, col_num, value, header_format)
                         worksheet.set_column(col_num, col_num, 15)
-                    
-                    # Add conditional formatting for 'valid' column
-                    if 'valid' in df.columns:
-                        valid_col_idx = df.columns.get_loc('valid')
+                    if len(df) > 0:
+                        worksheet.conditional_format(1, 0, len(df), len(df.columns) - 1, {'type': 'no_blanks', 'format': cell_format})
+                        worksheet.conditional_format(1, 0, len(df), len(df.columns) - 1, {'type': 'blanks', 'format': cell_format})
+                    if 'VALID' in df.columns:
+                        valid_col_idx = df.columns.get_loc('VALID')
                         nrows = len(df) + 1  # +1 for header
                         worksheet.conditional_format(1, valid_col_idx, nrows, valid_col_idx, {
                             'type': 'cell',

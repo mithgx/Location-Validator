@@ -276,17 +276,36 @@
                             </select>
                         </div>
                         <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">City Column</label>
+                            <select id="cityColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">State Column</label>
+                            <select id="stateColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Country Column</label>
+                            <select id="countryColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Latitude Column</label>
+                            <select id="latitudeColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-card-foreground">Longitude Column</label>
+                            <select id="longitudeColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
+                            </select>
+                        </div>
+                        <div class="space-y-2">
                             <label class="text-sm font-medium text-card-foreground">Pincode Column</label>
                             <select id="pincodeColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
                             </select>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-sm font-medium text-card-foreground">Lat/Long Column</label>
-                            <select id="latlongColumn" class="flex h-12 w-full rounded-md border border-input bg-background px-4 py-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors text-foreground">
-                            </select>
-                        </div>
                     </div>
-
                     <button 
                         type="button" 
                         id="validateBatchBtn"
@@ -329,10 +348,13 @@
                     <div class="table-container">
                         <table class="data-table">
                             <thead>
-                                <tr>
+                                <tr id="resultsHeader">
+                                    <th class="text-left">Area/City</th>
+                                    <th class="text-left">State</th>
+                                    <th class="text-left">Country</th>
+                                    <th class="text-left">Latitude</th>
+                                    <th class="text-left">Longitude</th>
                                     <th class="text-left">Pincode</th>
-                                    <th class="text-left">Area</th>
-                                    <th class="text-left">Lat/Long</th>
                                     <th class="text-left">Status</th>
                                 </tr>
                             </thead>
@@ -497,9 +519,17 @@
         });
 
         function populateColumnSelects(columns) {
-            const selects = ['areaColumn', 'pincodeColumn', 'latlongColumn'];
-            selects.forEach(selectId => {
-                const select = document.getElementById(selectId);
+            const mapping = [
+                { id: 'areaColumn', label: 'Area' },
+                { id: 'cityColumn', label: 'City' },
+                { id: 'stateColumn', label: 'State' },
+                { id: 'countryColumn', label: 'Country' },
+                { id: 'latitudeColumn', label: 'Latitude' },
+                { id: 'longitudeColumn', label: 'Longitude' },
+                { id: 'pincodeColumn', label: 'Pincode' }
+            ];
+            mapping.forEach(({ id }) => {
+                const select = document.getElementById(id);
                 select.innerHTML = '<option value="">Select column</option>' +
                     columns.map(col => `<option value="${col}">${col}</option>`).join('');
             });
@@ -545,12 +575,18 @@
 
             const columnMapping = {
                 area: document.getElementById('areaColumn').value,
+                city: document.getElementById('cityColumn').value,
+                state: document.getElementById('stateColumn').value,
+                country: document.getElementById('countryColumn').value,
+                latitude: document.getElementById('latitudeColumn').value,
+                longitude: document.getElementById('longitudeColumn').value,
                 pincode: document.getElementById('pincodeColumn').value,
-                latlong: document.getElementById('latlongColumn').value
+                latlong: document.getElementById('latlongColumn') ? document.getElementById('latlongColumn').value : ''
             };
 
-            if (!Object.values(columnMapping).every(Boolean)) {
-                alert('Please map all required columns');
+            // Only area/city and pincode are required
+            if (!columnMapping.area || !columnMapping.pincode) {
+                alert('Please map at least Area/City and Pincode columns');
                 return;
             }
 
@@ -675,18 +711,44 @@
             const body = document.getElementById('resultsBody');
             body.innerHTML = '';
 
+            // Define the columns to display and their headers
+            const columns = [
+                { key: 'input_area', label: 'Input Area' },
+                { key: 'input_city', label: 'Input City' },
+                { key: 'input_state', label: 'Input State' },
+                { key: 'input_country', label: 'Input Country' },
+                { key: 'input_latitude', label: 'Input Latitude' },
+                { key: 'input_longitude', label: 'Input Longitude' },
+                { key: 'input_pincode', label: 'Input Pincode' },
+                { key: 'matched_area', label: 'Matched Area' },
+                { key: 'matched_city', label: 'Matched City' },
+                { key: 'matched_state', label: 'Matched State' },
+                { key: 'matched_country', label: 'Matched Country' },
+                { key: 'matched_latitude', label: 'Matched Latitude' },
+                { key: 'matched_longitude', label: 'Matched Longitude' },
+                { key: 'matched_pincode', label: 'Matched Pincode' },
+                { key: 'valid', label: 'Valid' }
+            ];
+
+            // Render header
+            const header = document.getElementById('resultsHeader');
+            if (header) {
+                header.innerHTML = '';
+                columns.forEach(col => {
+                    header.innerHTML += `<th class="text-left">${col.label}</th>`;
+                });
+            }
+
+            // Render rows
             results.forEach(result => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${result.pincode || ''}</td>
-                    <td>${result.area || ''}</td>
-                    <td>${result.latlong || ''}</td>
-                    <td>
-                        <span class="valid-badge ${result.valid ? 'valid' : 'invalid'}">
-                            ${result.valid ? 'Valid' : 'Invalid'}
-                        </span>
-                    </td>
-                `;
+                columns.forEach(col => {
+                    if (col.key === 'valid') {
+                        tr.innerHTML += `<td><span class="valid-badge ${result.valid ? 'valid' : 'invalid'}">${result.valid ? 'Valid' : 'Invalid'}</span></td>`;
+                    } else {
+                        tr.innerHTML += `<td>${result[col.key] !== undefined ? result[col.key] : ''}</td>`;
+                    }
+                });
                 body.appendChild(tr);
             });
 
@@ -786,6 +848,9 @@
             areaSearchBtn.disabled = true;
             areaSearchResult.classList.add('hidden');
             areaSearchBody.innerHTML = '';
+            // Remove any previous show more button
+            const prevShowMore = document.getElementById('areaShowMoreBtn');
+            if (prevShowMore) prevShowMore.remove();
             try {
                 const response = await fetch('/search', {
                     method: 'POST',
@@ -794,12 +859,31 @@
                 });
                 const data = await response.json();
                 if (data.matches && Array.isArray(data.matches) && data.matches.length > 0) {
-                    data.matches.forEach(row => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${row.place_name || ''}</td><td>${row.state_name || ''}</td><td>${row.country_code || ''}</td><td>${row.postal_code || ''}</td><td>${row.latitude || ''}</td><td>${row.longitude || ''}</td>`;
-                        areaSearchBody.appendChild(tr);
-                    });
+                    // Show only first 40 rows initially
+                    const maxRows = 40;
+                    let showingAll = false;
+                    function renderRows(limit) {
+                        areaSearchBody.innerHTML = '';
+                        data.matches.slice(0, limit).forEach(row => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${row.place_name || ''}</td><td>${row.state_name || ''}</td><td>${row.country_code || ''}</td><td>${row.postal_code || ''}</td><td>${row.latitude || ''}</td><td>${row.longitude || ''}</td>`;
+                            areaSearchBody.appendChild(tr);
+                        });
+                    }
+                    renderRows(maxRows);
                     areaSearchResult.classList.remove('hidden');
+                    // Add show more button if needed
+                    if (data.matches.length > maxRows) {
+                        const showMoreBtn = document.createElement('button');
+                        showMoreBtn.id = 'areaShowMoreBtn';
+                        showMoreBtn.textContent = `Show All (${data.matches.length})`;
+                        showMoreBtn.className = 'mt-4 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90';
+                        showMoreBtn.onclick = function() {
+                            renderRows(data.matches.length);
+                            showMoreBtn.remove();
+                        };
+                        areaSearchResult.appendChild(showMoreBtn);
+                    }
                 } else {
                     areaSearchBody.innerHTML = '<tr><td colspan="6">No results found.</td></tr>';
                     areaSearchResult.classList.remove('hidden');
